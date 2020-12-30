@@ -229,15 +229,6 @@ void updateDisplay() {
   switch (mode) {
     case 1: // Update target temp
       resetDisplay();
- /*     display.setTextSize(2);
-      display.setCursor(indent1,line2);
-      display.print("   ");
-      display.setCursor(indent1,line2);
-      if (targetTemp < 100){
-        display.print(" ");
-      }
-      display.print(int(targetTemp));
-      display.display(); */
       break;
     case 2: // Update Kp
       PIDdisplay();
