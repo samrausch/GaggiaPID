@@ -19,7 +19,23 @@ This design is intended to be as simple as possible in terms of the installation
 * Rare earth magnets (optional), attached to the back of the SSR to fasten it to the inside of the espresso machine.
 * Braided cable sleeve (optional), I used https://www.amazon.com/gp/product/B07QJW9FKS/ref=ppx_yo_dt_b_search_asin_title?ie=UTF8&psc=1
 
-Installation steps:
+# 3D printing
+
+I printed everything using Inland PLA+ filament.  Pretty much any material should work fine as the outside of the Gaggia never gets hot enough to melt most thermoplastics.  The included STL files assume you're using the exact same parts I am.  If you use anything different you'll need to make adjustments to the 3D printed parts.
+
+There are no holes in the printed parts for the wiring between the PID and espresso machine, you'll need to decide where you want these holes and drill them yourself.
+
+In it's current revision, the Arduino board is still powered via USB so there needs to be an opening to plug in the USB cable.  This opening is also not included in the STL files as it's easier to locate the hole during the assembly.
+
+# Assembly
+
+Follow the included circuit diagram.  For the wiring inside the PID I just used 32AWG single strand hookup wire and for any wiring inside the Gaggia I used silicone insulated wire (26AWG for the wiring from PID to SSR, 12AWG to extend the thermoswitch leads to the SSR as referenced in the Installation Steps below).  The boiler in the Gaggia can get hot enough to melt non-silicone insulation so if you don't have silicone wiring, make sure to keep any wiring well clear of the boiler.
+
+The Arduino board is secured using a small amount of hot glue.  The MCP9600 board is fastened with a screw to the small ledge inside the 3D printed box.  The OLED and buttons can be secured with your favorite adhesive.  The lid of the enclosure is held by four screws.  I drilled pilot holes for all the screws because my 3D printer has problems printing holes that small.  You will probably want to drill pilot holes as well to prevent cracking the plastic.
+
+My PID is just held on by the clip on the side of the 3D printed box.  Gravity seems to be working as expected in my case but you may decide to attach a magnet to the side of the box that touches the Gaggia for a more secure mount.  If you do this, consider counter-sinking the magnet so that it is flush with the outisde of the box.  This will keep things looking tidy.
+
+# Installation steps:
 
 * THIS ASSUMES YOUR COMPETENT WORKING WITH AC CIRCUITS.  AC CIRCUITS ARE DANGEROUS AND MISTAKES CAN CAUSE INJURY OR DEATH.  YOU ALONE ARE RESPONSIBLE FOR YOUR OWN SAFETY, PLEASE KNOW YOUR LIMITS.
 * Remove the top of the machine and locate the boiler thermal switch.  This will be the one at the bottom of the boiler, closest to the group head.
