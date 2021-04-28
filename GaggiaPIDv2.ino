@@ -30,33 +30,38 @@ const int line3 = 32;
 const int upPin = 3;
 const int modePin = 12;
 const int downPin = 5;
-const int relayPin = 7;
-int mode = 1;
-
+const int relayPin = 9;
+const int runPin = 7;
+const int progPin = 8;
+int brewTemp = 93;
+int steamTemp = 155;
+int runMode = 1;
+int brewMode = 1;
+int firstRun = 1;
 
 #include <PID_v1.h>
 double targetTemp;
 double currentTemp;
 double heatState;
-double Kp = 15;
-double Ki = 1;
-double Kd = 100;
+double Kp = 10;
+double Ki = 50;
+double Kd = 30;
 PID myPID(&currentTemp, &heatState, &targetTemp, Kp, Ki, Kd, DIRECT);
 int WindowSize = 100;
 unsigned long windowStartTime;
 
 void setup() {
   pinMode(relayPin, OUTPUT);
-  pinMode(groundPin, OUTPUT);
-  digitalWrite(groundPin, HIGH);
+  pinMode(runPin, INPUT_PULLUP);
+  pinMode(progPin, INPUT_PULLUP);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
   display.setCursor(0,0);
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.println("Gaggia PID");
-  display.println();
-  display.println("v1.0");
+  display.println("v2.0");
+  display.println("Now with  STEAM!");
   if (! mcp.begin(tc_address)) {
     display.clearDisplay();
     display.println("TC ERROR");
@@ -79,7 +84,7 @@ void setup() {
   display.println("Heat");
   display.setCursor(0,bottom);
   display.setTextSize(1);
-  display.print("  DN  |  CH  |  UP  ");
+  display.print("  DN  |  ST  |  UP  ");
   display.display();
   pinMode(modePin, INPUT_PULLUP);
   pinMode(upPin, INPUT_PULLUP);
@@ -91,17 +96,22 @@ void setup() {
   downButton.attach(downPin);
   downButton.interval(intervalMs);
   windowStartTime = millis();
-  targetTemp = 85;
+  targetTemp = brewTemp;
   myPID.SetOutputLimits(0, WindowSize);
   myPID.SetMode(AUTOMATIC);
 }
 
-void resetDisplay() {
+void brewDisplay() {
   display.clearDisplay();
   display.setCursor(0,0);
   display.setTextSize(2);
   display.println("Temp");
-  display.println("Set -->");
+  if (brewMode == 1) {
+    display.println("Brew  >");
+  }
+  if (brewMode == 2) {
+    display.println("Steam >");
+  }
   display.println("Heat");
   display.setCursor(indent1,line1);
   if (currentTemp < 100){
@@ -127,7 +137,7 @@ void resetDisplay() {
   display.print(int(heatDuty));
   display.setCursor(0,bottom);
   display.setTextSize(1);
-  display.print("  DN  |  CH  |  UP  ");
+  display.print("  DN  |  ST  |  UP  ");
   display.display();
 }
 
@@ -141,26 +151,23 @@ void PIDdisplay() {
   display.setCursor(indent2,line1);
   display.print(int(Kp));
   display.setCursor(indent2,line2);
-  display.print(Ki);
+  display.print(int(Ki));
   display.setCursor(indent2,line3);
   display.print(int(Kd));
   display.setCursor(0,bottom);
   display.setTextSize(1);
   display.print("  DN  |  CH  |  UP  ");
   display.setTextSize(2);
-  switch (mode) {
+  switch (runMode) {
     case 1:
-      NOOP;
-      break;
-    case 2:
       display.setCursor(0,line1);
       display.print("  -->");
       break;
-    case 3:
+    case 2:
       display.setCursor(0,line2);
       display.print("  -->");
       break;
-    case 4:
+    case 3:
       display.setCursor(0,line3);
       display.print("  -->");
   }
@@ -168,88 +175,137 @@ void PIDdisplay() {
 }
 
 void checkButtons() {
-  modeButton.update();
-  const byte modeButtonState = modeButton.read();
-  if (modeButtonState == LOW && modeButton.fallingEdge()) {
-    switch (mode) {
-      case 1: // Switch to Kp setting
-        mode = 2;
-        PIDdisplay();
-        break;
-      case 2: // Switch to Ki setting
-        mode = 3;
-        PIDdisplay();
-        break;
-      case 3: // Switch to Kd setting
-        mode = 4;
-        PIDdisplay();
-        break;
-      case 4: // Switch to temp setting
-        mode = 1;
-        resetDisplay();
-    }
+  int modeSelect = 1;
+  byte modeButtonState = modeButton.read();
+  byte upButtonState = upButton.read();
+  byte downButtonState = downButton.read();
+  int amIrunning = digitalRead(runPin);
+  if (amIrunning == 0) {
+    modeSelect = 1; //brewing
+    brewDisplay();
+  } else {
+    modeSelect = 2; //programming
+    PIDdisplay();
   }
-  upButton.update();
-  const byte upButtonState = upButton.read();
-  if (upButtonState == LOW && upButton.fallingEdge()) {
-    switch(mode) {
-      case 1: // Adjust temp settings
-        targetTemp++;
-        break;
-      case 2: // Adjust PID settings
-        Kp++;
-        break;
-      case 3: // Adjust Ki setting
-        Ki = Ki + 0.1;
-        break;
-      case 4: // Adjust Kd setting
-        Kd = Kd + 10;       
-    }
-  }
-  downButton.update();
-  const byte downButtonState = downButton.read();
-  if (downButtonState == LOW && downButton.fallingEdge()) {
-    switch(mode) {
-      case 1: // Adjust temp settings
-        targetTemp--;
-        break;
-      case 2: // Adjust Kp settings
-        Kp--;
-        break;
-      case 3: // Adjust Ki setting
-        Ki = Ki - 0.1;
-        break;
-      case 4: // Adjust Kd setting
-        Kd = Kd - 10;
-    }       
-  }
-}
-
-void updateDisplay() {
-  switch (mode) {
-    case 1: // Update target temp
-      resetDisplay();
+  switch (modeSelect) {
+    case 1: // we're brewing
+      modeButton.update();
+      modeButtonState = modeButton.read();
+      if (modeButtonState == LOW && modeButton.fallingEdge()) {
+        switch (brewMode) {
+          case 1: // Switch to steam
+            brewMode = 2;
+            brewTemp = targetTemp;
+            targetTemp = steamTemp;
+            //brewDisplay();
+            break;
+          case 2: // Switch to brew
+            brewMode = 1;
+            steamTemp = targetTemp;
+            targetTemp = brewTemp;
+            //brewDisplay();
+        }
+      }
+      upButton.update();
+      upButtonState = upButton.read();
+      if (upButtonState == LOW && upButton.fallingEdge()) {
+        switch(brewMode) {
+          case 1: // Adjust brew temp settings
+            targetTemp++;
+            //brewDisplay();
+            break;
+          case 2: // Adjust steam temp settings
+            targetTemp++;
+            //brewDisplay();    
+        }
+      }
+      downButton.update();
+      downButtonState = downButton.read();
+      if (downButtonState == LOW && downButton.fallingEdge()) {
+        switch(brewMode) {
+          case 1: // Adjust brew temp settings
+            targetTemp--;
+            //brewDisplay();
+            break;
+          case 2: // Adjust steam temp settings
+            targetTemp--;
+            //brewDisplay();
+        }
+      }
       break;
-    case 2: // Update Kp
-      PIDdisplay();
-      break;
-    case 3: // Update Ki
-      PIDdisplay();
-      break;
-    case 4: // Update Kd
-      PIDdisplay();
+    case 2: // we're programming
+      modeButton.update();
+      modeButtonState = modeButton.read();
+      if (modeButtonState == LOW && modeButton.fallingEdge()) {
+        switch (runMode) {
+          case 1: // Switch to Ki setting
+            runMode = 2;
+            //PIDdisplay();
+            break;
+          case 2: // Switch to Kd setting
+            runMode = 3;
+            //PIDdisplay();
+            break;
+          case 3: // Switch to Kp setting
+            runMode = 1;
+            //PIDdisplay();
+        }
+      }
+      upButton.update();
+      upButtonState = upButton.read();
+      if (upButtonState == LOW && upButton.fallingEdge()) {
+        switch(runMode) {
+          case 1: // Adjust Kp settings
+            Kp++;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();
+            break;
+          case 2: // Adjust Ki setting
+            Ki++;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();
+            break;
+          case 3: // Adjust Kd setting
+            Kd++;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();       
+        }
+      }
+      downButton.update();
+      downButtonState = downButton.read();
+      if (downButtonState == LOW && downButton.fallingEdge()) {
+        switch(runMode) {
+          case 1: // Adjust Kp settings
+            Kp--;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();
+            break;
+          case 2: // Adjust Ki setting
+            Ki--;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();
+            break;
+          case 3: // Adjust Kd setting
+            Kd--;
+            myPID.SetTunings(Kp, Ki, Kd);
+            //PIDdisplay();
+        }      
+      }
   }
 }
 
 void loop() {
   checkButtons();
-  currentTemp = mcp.readThermocouple();
-  myPID.Compute();
   if (millis() - windowStartTime > WindowSize)
-  { //time to shift the Relay Window
+  { 
+    currentTemp = mcp.readThermocouple();
+    analogWrite(relayPin, map(heatState, 0, 100, 0, 1023));
+    myPID.Compute();
     windowStartTime += WindowSize;
+    if (firstRun) {
+      delay(1000);
+      brewDisplay();
+      firstRun = 0;
+    }
   }
-  if (heatState < millis() - windowStartTime) digitalWrite(relayPin, LOW);
-  else digitalWrite(relayPin, HIGH);
-  updateDisplay();
 }
