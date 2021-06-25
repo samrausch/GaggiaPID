@@ -10,17 +10,20 @@ const unsigned long intervalMs = 5;
 
 #define NOOP __asm__ __volatile__ ("nop\n\t")
 
+// if you're using a 128x64 i2c OLED, this is all you need
+// if you're using something else, feel free to substitute your stuff here
 #include <Adafruit_SSD1306.h>
 #include <gfxfont.h>
 #include <Adafruit_GFX.h>
-
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define OLED_RESET 4
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 #include <Wire.h> 
-
+// This stuff is just for text formatting so you can control the indents and line spacing
+// if you're using a 128x64 OLED screen, you can keep all these values
+// otherwise you'll want to change them depending on your display
 const int indent1 = 88;
 const int indent2 = 72;
 const int bottom = 56;
@@ -33,8 +36,8 @@ const int downPin = 5;
 const int relayPin = 9;
 const int runPin = 7;
 const int progPin = 8;
-int brewTemp = 93;
-int steamTemp = 155;
+int brewTemp = 93;      // set the default brew temp here
+int steamTemp = 155;    // set the default steam temp here
 int runMode = 1;
 int brewMode = 1;
 int firstRun = 1;
@@ -61,7 +64,7 @@ void setup() {
   display.setTextColor(WHITE);
   display.println("Gaggia PID");
   display.println("v2.0");
-  display.println("Now with  STEAM!");
+  display.println("Now with STEAM!");
   if (! mcp.begin(tc_address)) {
     display.clearDisplay();
     display.println("TC ERROR");
@@ -102,6 +105,7 @@ void setup() {
 }
 
 void brewDisplay() {
+  // this function updates the display when in brew/steam mode
   display.clearDisplay();
   display.setCursor(0,0);
   display.setTextSize(2);
@@ -142,6 +146,7 @@ void brewDisplay() {
 }
 
 void PIDdisplay() {
+  // this function updates the display when it's in programming mode
   display.clearDisplay();
   display.setCursor(0,0);
   display.setTextSize(2);
@@ -175,11 +180,14 @@ void PIDdisplay() {
 }
 
 void checkButtons() {
+  // there's a lot going on in here
+  // first we check the buttons to see if they've been pressed
   int modeSelect = 1;
   byte modeButtonState = modeButton.read();
   byte upButtonState = upButton.read();
   byte downButtonState = downButton.read();
   int amIrunning = digitalRead(runPin);
+  // this is the swtich that goes between run and programming, connected to the runPin
   if (amIrunning == 0) {
     modeSelect = 1; //brewing
     brewDisplay();
@@ -191,6 +199,7 @@ void checkButtons() {
     case 1: // we're brewing
       modeButton.update();
       modeButtonState = modeButton.read();
+      // this section changes between steam and brew based on the brewMode variable, which is toggled by the mode button
       if (modeButtonState == LOW && modeButton.fallingEdge()) {
         switch (brewMode) {
           case 1: // Switch to steam
@@ -208,6 +217,7 @@ void checkButtons() {
       }
       upButton.update();
       upButtonState = upButton.read();
+      // here we're raising the temp of brew or steam
       if (upButtonState == LOW && upButton.fallingEdge()) {
         switch(brewMode) {
           case 1: // Adjust brew temp settings
@@ -221,6 +231,7 @@ void checkButtons() {
       }
       downButton.update();
       downButtonState = downButton.read();
+      // here we're lowering the temp of brew or steam
       if (downButtonState == LOW && downButton.fallingEdge()) {
         switch(brewMode) {
           case 1: // Adjust brew temp settings
@@ -236,6 +247,7 @@ void checkButtons() {
     case 2: // we're programming
       modeButton.update();
       modeButtonState = modeButton.read();
+      // since we're in programming mode, the buttons now control the PID variables
       if (modeButtonState == LOW && modeButton.fallingEdge()) {
         switch (runMode) {
           case 1: // Switch to Ki setting
@@ -295,8 +307,9 @@ void checkButtons() {
 }
 
 void loop() {
-  checkButtons();
+  checkButtons();   // see in-line documentation in the function above
   if (millis() - windowStartTime > WindowSize)
+    // this is where we periodically read the TC, update the PID and then reset the timer for the next cycle
   { 
     currentTemp = mcp.readThermocouple();
     analogWrite(relayPin, map(heatState, 0, 100, 0, 1023));
